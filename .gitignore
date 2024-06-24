@@ -1,0 +1,18 @@
+
+# folders
+__pycache__
+.ipynb_checkpoints
+data
+
+# files
+.DS_Store
+patient_to_id.csv
+*.ipynb
+*.py
+!image_tomo.ipynb
+!get_image.py
+!define_crop_coord.ipynb
+!crop_image.ipynb
+!crop_pano_image.ipynb
+!pano_rename.ipynb
+
