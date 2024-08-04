@@ -12,6 +12,7 @@ scripts:
 - [`pano_rename.ipynb`](scripts/pano/pano_rename.ipynb)
 - [`crop_pano_image.ipynb`](scripts/crop_pano_image.ipynb)
 - [`set_class_size.ipynb`](scripts/set_class_size.ipynb)
+- [`organize_dir.ipynb`](scripts/organize_dir.ipynb)
 
 ## Step-by-Step Actions Taken
 
@@ -39,6 +40,7 @@ scripts:
 - Selected frames were cropped to include the target teeth (numbers 15 and 25). ([`crop_image.ipynb`](scripts/crop_image.ipynb))
 - Panoramic images were also processed and organized in the `pano` folder. ([`pano_rename.ipynb`](scripts/pano_rename.ipynb))
 - Coordinates for cropping the panoramic images were determined. ([`crop_pano_image.ipynb`](scripts/crop_pano_image.ipynb))
-- Get equal number of images for each class. ([`set_class_size.ipynb`](scripts/set_class_size.ipynb))
+- Got equal number of images for each class. ([`set_class_size.ipynb`](scripts/set_class_size.ipynb))
+- Splitted data into train, validation, and test sets. ([`organize_dir.ipynb`](scripts/organize_dir.ipynb))
 
 ## To Do
