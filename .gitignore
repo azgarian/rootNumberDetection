@@ -2,17 +2,18 @@
 # folders
 __pycache__
 .ipynb_checkpoints
-data
+data/*
+!data/patient_info.csv
 
 # files
 .DS_Store
 patient_to_id.csv
-*.ipynb
-*.py
-!image_tomo.ipynb
-!get_image.py
-!define_crop_coord.ipynb
-!crop_image.ipynb
-!crop_pano_image.ipynb
-!pano_rename.ipynb
+scripts/*.ipynb
+scripts/*.py
+!scripts/image_tomo.ipynb
+!scripts/get_image.py
+!scripts/define_crop_coord.ipynb
+!scripts/crop_image.ipynb
+!scripts/crop_pano_image.ipynb
+!scripts/pano_rename.ipynb
 
