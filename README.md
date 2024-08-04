@@ -1,33 +1,44 @@
+# README
 
-# Adım adım yaptıklarımız
+## Workflow Order (for rerun)
 
 env: aiproject
 
-- Hasta tomografi ve panoramik görüntüleri seçilip hard diske aktarıldı.
-- `patient_info.csv` ve `patient_to_id.csv` isimli iki dosyada hastaların bilgileri düzenlendi.
-  - patient_info kolonları:
-    - patient_id: hastaya atanan id numarası
-    - age: yaş bilgisi
-    - gender: cinsiyet bilgisi
-    - radiology: (True/False) True ise tomografi net değil radyolojiye sorulacak
-    - 15_root_num: 15 numaralı dişin kök sayısı
-    - 25_root_num: 25 numaralı dişin kök sayısı
-    - 15_exact_img: Tomografiden çekilecek fotograf karesi aralığı 15 numaralı diş için
-    - 25_exact_img: Tomografiden çekilecek fotograf karesi aralığı 25 numaralı diş için
-    - 15_crop_coordinate: Seçilen karelerden sadece 15 numaralı dişi kesmek için kullanılan koordinatlar
-    - 25_crop_coordinate: Seçilen karelerden sadece 25 numaralı dişi kesmek için kullanılan koordinatlar
-    - 15_pano_crop_coordinate: 15 numaralı dişi kesmek için kullanılan koordinatlar (Panoramik görüntü)
-    - 25_pano_crop_coordinate: 25 numaralı dişi kesmek için kullanılan koordinatlar (Panoramik görüntü)
-  - patient_to_id kolonları:
-    - patient_name: hastanın isim bilgisi
-    - patient_id: hastaya atanan id numarası
-    - file_name: hastanın hard disk'teki dosya adı
-- Dicom formatındaki hasta tomografilerinden kullanılacak kareler seçildi. (`image_tomo.ipynb` ve `get_image.py`)
-- `define_crop_coord.ipynb` kodunu kullanarak 15 25 numaralı dişlerin kordinatları belirlendi.
-- Seçilen kareler hedef dişleri (15 ve 25 numara) içerecek şekilde kırpıldı. (`crop_image.ipynb`)
-- Panoramik görüntüleri de işlemek için `pano` klasörü içinde düzenlendi. (`pano_rename.ipynb`)
-- Panoramik görüntülerin kesilecek koordinatları belirlendi. (`crop_pano_image.ipynb`)
+scripts:
 
-## Yapılacaklar
+- [`image_tomo.ipynb`](scripts/image_tomo.ipynb)
+- [`define_crop_coord.ipynb`](scripts/define_crop_coord.ipynb) # if a redefine needed.
+- [`crop_image.ipynb`](scripts/crop_image.ipynb)
+- [`pano_rename.ipynb`](scripts/pano/pano_rename.ipynb)
+- [`crop_pano_image.ipynb`](scripts/crop_pano_image.ipynb)
 
-- machine learning bak.
+## Step-by-Step Actions Taken
+
+- Selected patient tomography and panoramic images were transferred to the hard disk.
+- Patient information was organized in two files named [`patient_info.csv`](data/patient_info.csv) and [`patient_to_id.csv`](data/patient_to_id.csv).
+  - Columns in `patient_info`:
+    - `patient_id`: ID number assigned to the patient
+    - `age`: age information
+    - `gender`: gender information
+    - `radiology`: (True/False) If True, the tomography is unclear and will be referred to radiology
+    - `15_root_num`: number of roots for tooth number 15
+    - `25_root_num`: number of roots for tooth number 25
+    - `15_exact_img`: frame range to be extracted from tomography for tooth number 15
+    - `25_exact_img`: frame range to be extracted from tomography for tooth number 25
+    - `15_crop_coordinate`: coordinates used to crop only tooth number 15 from the selected frames
+    - `25_crop_coordinate`: coordinates used to crop only tooth number 25 from the selected frames
+    - `15_pano_crop_coordinate`: coordinates used to crop tooth number 15 (panoramic image)
+    - `25_pano_crop_coordinate`: coordinates used to crop tooth number 25 (panoramic image)
+  - Columns in `patient_to_id`:
+    - `patient_name`: name information of the patient
+    - `patient_id`: ID number assigned to the patient
+    - `file_name`: file name of the patient on the hard disk
+- Frames to be used from patient tomographies in Dicom format were selected. ([`image_tomo.ipynb`](scripts/image_tomo.ipynb) and [`get_image.py`](scripts/get_image.py))
+- Coordinates for teeth numbered 15 and 25 were determined using the [`define_crop_coord.ipynb`](scripts/define_crop_coord.ipynb) code.
+- Selected frames were cropped to include the target teeth (numbers 15 and 25). ([`crop_image.ipynb`](scripts/crop_image.ipynb))
+- Panoramic images were also processed and organized in the `pano` folder. ([`pano_rename.ipynb`](scripts/pano_rename.ipynb))
+- Coordinates for cropping the panoramic images were determined. ([`crop_pano_image.ipynb`](scripts/crop_pano_image.ipynb))
+
+## To Do
+
+- Review machine learning.
