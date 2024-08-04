@@ -16,4 +16,4 @@ scripts/*.py
 !scripts/crop_image.ipynb
 !scripts/crop_pano_image.ipynb
 !scripts/pano_rename.ipynb
-
+!scripts/set_class_size.ipynb
