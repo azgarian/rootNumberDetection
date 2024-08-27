@@ -18,3 +18,9 @@ scripts/*.py
 !scripts/pano_rename.ipynb
 !scripts/set_class_size.ipynb
 !scripts/organize_dir.ipynb
+
+scripts/dl/*
+!scripts/dl/data_setup.py
+!scripts/dl/model_builder.py
+!scripts/dl/utils.py
+!scripts/dl/train.ipynb
