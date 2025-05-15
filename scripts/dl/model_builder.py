@@ -6,37 +6,33 @@ from typing import Dict, List, Tuple
 import torch
 from torch import nn
 from tqdm.auto import tqdm
+from torch.utils.tensorboard import SummaryWriter
+from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, roc_curve, confusion_matrix
+import matplotlib.pyplot as plt
+from sklearn.metrics import ConfusionMatrixDisplay
+from scripts.dl import helper_functions as hf
+
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 class TinyVGG(nn.Module):
-    """Creates the TinyVGG architecture.
-
-    Replicates the TinyVGG architecture from the CNN explainer website in PyTorch.
-    See the original architecture here: https://poloclub.github.io/cnn-explainer/
-
-    Args:
-    input_shape: An integer indicating number of input channels.
-    hidden_units: An integer indicating number of hidden units between layers.
-    output_shape: An integer indicating number of output units.
-    """
-    def __init__(self, input_shape: int, hidden_units: int, output_shape: int) -> None:
+    """Creates the TinyVGG architecture for binary classification."""
+    def __init__(self, input_shape: int, hidden_units: int) -> None:
         super().__init__()
         self.conv_block_1 = nn.Sequential(
             nn.Conv2d(in_channels=input_shape,
-                    out_channels=hidden_units,
-                    kernel_size=3,
-                    stride=1,
-                    padding=0),
+                      out_channels=hidden_units,
+                      kernel_size=3,
+                      stride=1,
+                      padding=0),
             nn.ReLU(),
             nn.Conv2d(in_channels=hidden_units,
-                    out_channels=hidden_units,
-                    kernel_size=3,
-                    stride=1,
-                    padding=0),
+                      out_channels=hidden_units,
+                      kernel_size=3,
+                      stride=1,
+                      padding=0),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2,
-                        stride=2)
+            nn.MaxPool2d(kernel_size=2, stride=2)
         )
         self.conv_block_2 = nn.Sequential(
             nn.Conv2d(hidden_units, hidden_units, kernel_size=3, padding=0),
@@ -47,130 +43,85 @@ class TinyVGG(nn.Module):
         )
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            # Where did this in_features shape come from?
-            # It's because each layer of our network compresses and
-            # changes the shape of our inputs data.
-            nn.Linear(in_features=hidden_units*13*13,
-                    out_features=output_shape)
-        )
+            nn.Linear(2809*hidden_units, hidden_units),  # Adjust the input size to 28090
+            nn.ReLU(),
+            nn.Linear(hidden_units, hidden_units),
+            nn.ReLU(),
+            nn.Linear(hidden_units, 1)
+)
 
     def forward(self, x: torch.Tensor):
         x = self.conv_block_1(x)
         x = self.conv_block_2(x)
         x = self.classifier(x)
         return x
-        # return self.classifier(self.conv_block_2(self.conv_block_1(x)))
-        # <- leverage the benefits of operator fusion
 
 def train_step(model: torch.nn.Module,
                dataloader: torch.utils.data.DataLoader,
                loss_fn: torch.nn.Module,
                optimizer: torch.optim.Optimizer,
                device: torch.device) -> Tuple[float, float]:
-    """Trains a PyTorch model for a single epoch.
-
-    Turns a target PyTorch model to training mode and then
-    runs through all of the required training steps (forward
-    pass, loss calculation, optimizer step).
-
-    Args:
-    model: A PyTorch model to be trained.
-    dataloader: A DataLoader instance for the model to be trained on.
-    loss_fn: A PyTorch loss function to minimize.
-    optimizer: A PyTorch optimizer to help minimize the loss function.
-    device: A target device to compute on (e.g. "cuda" or "cpu").
-
-    Returns:
-    A tuple of training loss and training accuracy metrics.
-    In the form (train_loss, train_accuracy). For example:
-
-    (0.1112, 0.8743)
-    """
-    # Put model in train mode
     model.train()
-
-    # Setup train loss and train accuracy values
     train_loss, train_acc = 0, 0
-
-    # Loop through data loader data batches
     for _, (x, y) in enumerate(dataloader):
-        # Send data to target device
-        x, y = x.to(device), y.to(device)
+        x, y = x.to(device), y.to(device).float().view(-1, 1)  # Ensure y is float and reshaped for BCEWithLogitsLoss
 
-        # 1. Forward pass
         y_pred = model(x)
 
-        # 2. Calculate  and accumulate loss
         loss = loss_fn(y_pred, y)
         train_loss += loss.item()
 
-        # 3. Optimizer zero grad
         optimizer.zero_grad()
-
-        # 4. Loss backward
         loss.backward()
-
-        # 5. Optimizer step
         optimizer.step()
 
-        # Calculate and accumulate accuracy metric across all batches
-        y_pred_class = torch.argmax(torch.softmax(y_pred, dim=1), dim=1)
+        y_pred_class = torch.round(torch.sigmoid(y_pred))  # Binary classification
         train_acc += (y_pred_class == y).sum().item()/len(y_pred)
 
-    # Adjust metrics to get average loss and accuracy per batch
     train_loss = train_loss / len(dataloader)
     train_acc = train_acc / len(dataloader)
     return train_loss, train_acc
 
+from typing import Tuple, List
+
+from typing import Tuple, List
+import torch
+
 def test_step(model: torch.nn.Module,
               dataloader: torch.utils.data.DataLoader,
               loss_fn: torch.nn.Module,
-              device: torch.device) -> Tuple[float, float]:
-    """Tests a PyTorch model for a single epoch.
-
-    Turns a target PyTorch model to "eval" mode and then performs
-    a forward pass on a testing dataset.
-
-    Args:
-    model: A PyTorch model to be tested.
-    dataloader: A DataLoader instance for the model to be tested on.
-    loss_fn: A PyTorch loss function to calculate loss on the test data.
-    device: A target device to compute on (e.g. "cuda" or "cpu").
-
-    Returns:
-    A tuple of testing loss and testing accuracy metrics.
-    In the form (test_loss, test_accuracy). For example:
-
-    (0.0223, 0.8985)
-    """
-    # Put model in eval mode
+              device: torch.device) -> Tuple[float, float, List[int], List[int], List[float]]:
     model.eval()
-
-    # Setup test loss and test accuracy values
     test_loss, test_acc = 0, 0
-
-    # Turn on inference context manager
+    y_true = []
+    y_pred = []
+    y_scores = []
+    
     with torch.inference_mode():
-        # Loop through DataLoader batches
-        for batch, (X, y) in enumerate(dataloader):
-            # Send data to target device
-            X, y = X.to(device), y.to(device)
+        for _, (x, y) in enumerate(dataloader):
+            x, y = x.to(device), y.to(device).float().view(-1, 1)  # Ensure y is float and reshaped for BCEWithLogitsLoss
 
-            # 1. Forward pass
-            test_pred_logits = model(X)
+            test_pred_logits = model(x)
 
-            # 2. Calculate and accumulate loss
             loss = loss_fn(test_pred_logits, y)
             test_loss += loss.item()
 
-            # Calculate and accumulate accuracy
-            test_pred_labels = test_pred_logits.argmax(dim=1)
-            test_acc += ((test_pred_labels == y).sum().item()/len(test_pred_labels))
+            # Get predicted probabilities and labels
+            test_pred_probs = torch.sigmoid(test_pred_logits)  # Keep as tensor
+            test_pred_labels = torch.round(test_pred_probs)  # Round tensor for predicted labels
 
-    # Adjust metrics to get average loss and accuracy per batch
-    test_loss = test_loss / len(dataloader)
-    test_acc = test_acc / len(dataloader)
-    return test_loss, test_acc
+            # Accumulate true labels and predictions
+            y_true.extend(y.cpu().numpy())  # Convert true labels to numpy
+            y_pred.extend(test_pred_labels.cpu().numpy())  # Convert predicted labels to numpy
+            y_scores.extend(test_pred_probs.cpu().numpy())  # Convert probabilities to numpy
+
+            # Calculate accuracy
+            test_acc += (test_pred_labels == y).sum().item() / len(test_pred_labels)
+
+    test_loss /= len(dataloader)
+    test_acc /= len(dataloader)
+
+    return test_loss, test_acc, y_true, y_pred, y_scores
 
 def train(model: torch.nn.Module,
           train_dataloader: torch.utils.data.DataLoader,
@@ -178,56 +129,79 @@ def train(model: torch.nn.Module,
           optimizer: torch.optim.Optimizer,
           loss_fn: torch.nn.Module,
           epochs: int,
-          device: torch.device) -> Dict[str, List]:
-    """Trains and tests a PyTorch model.
-
-    Passes a target PyTorch models through train_step() and test_step()
-    functions for a number of epochs, training and testing the model
-    in the same epoch loop.
-
-    Calculates, prints and stores evaluation metrics throughout.
+          log_dir: str,
+          device: torch.device,
+          scheduler: torch.optim.lr_scheduler._LRScheduler = None) -> Dict[str, List]:
+    """Trains and tests a PyTorch model with TensorBoard logging.
 
     Args:
-    model: A PyTorch model to be trained and tested.
-    train_dataloader: A DataLoader instance for the model to be trained on.
-    test_dataloader: A DataLoader instance for the model to be tested on.
-    optimizer: A PyTorch optimizer to help minimize the loss function.
-    loss_fn: A PyTorch loss function to calculate loss on both datasets.
-    epochs: An integer indicating how many epochs to train for.
-    device: A target device to compute on (e.g. "cuda" or "cpu").
+        model: A PyTorch model to be trained and tested.
+        train_dataloader: A DataLoader instance for the model to be trained on.
+        test_dataloader: A DataLoader instance for the model to be tested on.
+        optimizer: A PyTorch optimizer to help minimize the loss function.
+        loss_fn: A PyTorch loss function to calculate loss on both datasets.
+        epochs: An integer indicating how many epochs to train for.
+        log_dir: Directory for TensorBoard logs.
+        device: A target device to compute on (e.g., "cuda" or "cpu").
 
     Returns:
-    A dictionary of training and testing loss as well as training and
-    testing accuracy metrics. Each metric has a value in a list for 
-    each epoch.
-    In the form: {train_loss: [...],
-                    train_acc: [...],
-                    test_loss: [...],
-                    test_acc: [...]} 
-    For example if training for epochs=2: 
-                    {train_loss: [2.0616, 1.0537],
-                    train_acc: [0.3945, 0.3945],
-                    test_loss: [1.2641, 1.5706],
-                    test_acc: [0.3400, 0.2973]} 
+        A dictionary of training and testing metrics across epochs.
     """
+    writer = SummaryWriter(log_dir=log_dir)
+
     # Create empty results dictionary
-    results = {"train_loss": [],
+    results = {
+        "train_loss": [],
         "train_acc": [],
         "test_loss": [],
-        "test_acc": []
+        "test_acc": [],
+        "precision": [],
+        "recall": [],
+        "f1_score": [],
+        "roc_auc": []
     }
 
     # Loop through training and testing steps for a number of epochs
     for epoch in tqdm(range(epochs)):
-        train_loss, train_acc = train_step(model=model,
-                                            dataloader=train_dataloader,
-                                            loss_fn=loss_fn,
-                                            optimizer=optimizer,
-                                            device=device)
-        test_loss, test_acc = test_step(model=model,
+        train_loss, train_acc = train_step(
+            model=model,
+            dataloader=train_dataloader,
+            loss_fn=loss_fn,
+            optimizer=optimizer,
+            device=device
+        )
+
+        test_loss, test_acc, y_true, y_pred, y_scores = test_step(
+            model=model,
             dataloader=test_dataloader,
             loss_fn=loss_fn,
-            device=device)
+            device=device
+        )
+
+        # Calculate precision, recall, F1 score, and ROC-AUC
+        precision = precision_score(y_true, y_pred, average='weighted')
+        recall = recall_score(y_true, y_pred, average='weighted')
+        f1 = f1_score(y_true, y_pred, average='weighted')
+        roc_auc = roc_auc_score(y_true, y_scores)
+
+        # Log metrics to TensorBoard
+        writer.add_scalar("Loss/train", train_loss, epoch)
+        writer.add_scalar("Accuracy/train", train_acc, epoch)
+        writer.add_scalar("Loss/test", test_loss, epoch)
+        writer.add_scalar("Accuracy/test", test_acc, epoch)
+        writer.add_scalar("Precision/test", precision, epoch)
+        writer.add_scalar("Recall/test", recall, epoch)
+        writer.add_scalar("F1 Score/test", f1, epoch)
+        writer.add_scalar("ROC AUC/test", roc_auc, epoch)
+
+        # Plot ROC curve and confusion matrix
+        hf.plot_roc_curve(y_true, y_scores, writer, epoch)
+        hf.plot_confusion_matrix(y_true, y_pred, writer, epoch)
+
+        # Sample predictions visualization
+        #inputs, labels = next(iter(test_dataloader))
+        #predictions = model(inputs.to(device)).argmax(dim=1)
+        #hf.plot_sample_predictions(inputs, labels, predictions.cpu(), writer, epoch)
 
         # Print out what's happening
         print(
@@ -235,7 +209,11 @@ def train(model: torch.nn.Module,
             f"train_loss: {train_loss:.4f} | "
             f"train_acc: {train_acc:.4f} | "
             f"test_loss: {test_loss:.4f} | "
-            f"test_acc: {test_acc:.4f}"
+            f"test_acc: {test_acc:.4f} | "
+            f"precision: {precision:.4f} | "
+            f"recall: {recall:.4f} | "
+            f"f1_score: {f1:.4f} | "
+            f"roc_auc: {roc_auc:.4f}"
         )
 
         # Update results dictionary
@@ -243,6 +221,15 @@ def train(model: torch.nn.Module,
         results["train_acc"].append(train_acc)
         results["test_loss"].append(test_loss)
         results["test_acc"].append(test_acc)
+        results["precision"].append(precision)
+        results["recall"].append(recall)
+        results["f1_score"].append(f1)
+        results["roc_auc"].append(roc_auc)
+
+        if scheduler:
+            scheduler.step()
+
+    writer.close()  # Close writer at the end of training
 
     # Return the filled results at the end of the epochs
     return results

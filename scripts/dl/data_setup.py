@@ -59,7 +59,7 @@ def create_dataloaders(
     # Use ImageFolder to create dataset(s)
     train_data = datasets.ImageFolder(train_dir, transform=train_transform)
     test_data = datasets.ImageFolder(test_dir, transform=test_transform)
-    test_data = datasets.ImageFolder(val_dir, transform=test_transform)
+    val_data = datasets.ImageFolder(val_dir, transform=test_transform)
 
     # Get class names
     class_names = train_data.classes
@@ -80,7 +80,7 @@ def create_dataloaders(
         pin_memory=True,
     )
     val_dataloader = DataLoader(
-        test_data,
+        val_data,
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,

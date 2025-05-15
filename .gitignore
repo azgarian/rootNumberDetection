@@ -19,6 +19,10 @@ scripts/*.py
 !scripts/set_class_size.ipynb
 !scripts/organize_dir.ipynb
 
+node_modules/
+models/
+logs/
+
 scripts/dl/*
 !scripts/dl/data_setup.py
 !scripts/dl/model_builder.py
