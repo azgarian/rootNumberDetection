@@ -9,9 +9,15 @@ data/*
 .DS_Store
 patient_to_id.csv
 
-articles/
 node_modules/
 models/
 logs/
 
-src/dl_old/*
+
+results/*
+old/*
+results_deneme/*
+outputs/
+
+src/training/*.sh
+README_old.md
