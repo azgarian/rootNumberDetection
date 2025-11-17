@@ -52,7 +52,7 @@ Columns 2–5 hold the confirmed root counts per tooth (ground truth for compari
 
 ### 1.1 Preprocess steps
 
-1. **Volume frame selection** – crop coordinates were specified with the DentBB tool (works on MacOS) by drawing bounding boxes around the root area of interest.
+1. **Volume frame selection** – crop coordinates were specified with the DentBB tool (developed by Veysel Oğulcan Kaya; compatible with macOS) by drawing bounding boxes around the root area of interest.
 2. **`src/preprocess/name2ids.ipynb`** – keeps the lookup tables (`patient_info.csv`, `patient_to_id.csv`) synchronized with the anonymized file naming scheme.
 3. **`src/preprocess/crop_images.ipynb`** – crops the selected frames using the tooth-specific bounding boxes.
 
